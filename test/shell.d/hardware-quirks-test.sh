@@ -148,6 +148,8 @@ machine() {
   xps13() { dmi sys_vendor "Dell Inc."; dmi product_name "XPS 13 ${1:-DX13260}"; dmi product_sku "${2:-0E53}"; }
   synaptics() { printf '%s\n' 'N: Name="SynPS/2 Synaptics TouchPad"' >"$hw/input-devices"; }
   surface() { dmi sys_vendor "Microsoft Corporation"; dmi product_name "$1"; }
+  # A Razer Blade 15 model whose eDP panel reports the EDID in file $2.
+  blade15() { dmi sys_vendor Razer; dmi product_name "Blade 15 $1 (Mid 2021) - RZ09-$1"; mkdir -p "$hw/drm/card2-eDP-1"; cp "$2" "$hw/drm/card2-eDP-1/edid"; }
 
   case $name in
     plain) dmi sys_vendor LENOVO; dmi product_name 21HM0000US; dmi product_family "ThinkPad X1 Carbon Gen 11" ;;
@@ -168,6 +170,9 @@ machine() {
     t14s-21n1-not-qualcomm) dmi product_name 21N10000US; FAKE_PLATFORM=aarch64 ;;
     t14-gen4) dmi product_name 21F60000US ;;
     yoga-slim7x) dmi product_name 83ED; FAKE_PLATFORM=aarch64-qualcomm ;;
+    razer-blade15) blade15 0409 "$ROOT/default/firmware/edid/razer-blade15-tl156vdxp02.bin" ;;
+    razer-blade15-other-panel) blade15 0409 /dev/null ;;
+    razer-blade15-other-model) blade15 0410 "$ROOT/default/firmware/edid/razer-blade15-tl156vdxp02.bin" ;;
     xps13-ptl) xps13; FAKE_LSPCI="00:02.0 VGA compatible controller: Intel Corporation Panther Lake [Intel Graphics]" ;;
     xps13-wcl) xps13; FAKE_LSPCI="00:02.0 VGA compatible controller: Intel Corporation Wildcat Lake [Intel Graphics]" ;;
     xps13-dx13261) xps13 DX13261; FAKE_LSPCI="00:02.0 VGA compatible controller: Intel Corporation Panther Lake [Intel Graphics]" ;;
@@ -204,6 +209,10 @@ run_leaf() {
     OMARCHY_DMI_PRODUCT_SKU="$hw/dmi/product_sku" \
     OMARCHY_SYNAPTIC_INPUT_DEVICES="$hw/input-devices" \
     OMARCHY_SURFACE_MKINITCPIO_DIR="$root/etc/mkinitcpio.conf.d" \
+    OMARCHY_DRM_CLASS_PATH="$hw/drm" \
+    OMARCHY_RAZER_BLADE15_FIRMWARE_DIR="$root/usr/lib/firmware" \
+    OMARCHY_RAZER_BLADE15_MKINITCPIO_DIR="$root/etc/mkinitcpio.conf.d" \
+    OMARCHY_RAZER_BLADE15_LIMINE_CONFIG_DIR="$root/etc/limine-entry-tool.d" \
     OMARCHY_NVIDIA_MODPROBE_CONFIG="$hw/nvidia.conf" \
     bash -eE -c 'source "$1"' bash "$ROOT/install/$1" </dev/null >/dev/null 2>&1 || status=$?
   {
@@ -224,6 +233,7 @@ leaves=(
   hardware/lenovo/thinkpad-t14s-camera.sh
   hardware/dell-xps13-ptl-speaker-firmware.sh
   hardware/dell-xps13-sidecar-amps.sh
+  hardware/razer/fix-razer-blade15-360hz-edid.sh
   user/hardware/fix-nouveau-cursor.sh
 )
 
@@ -282,6 +292,10 @@ hardware/dell-xps13-sidecar-amps.sh|xps13-ptl+unreadable|0
 # has to surface rather than be swallowed by a successful install.
 hardware/dell-xps13-sidecar-amps.sh|xps13-apply-fails|1|pkg-add dell-xps13-sidecar-amps|sudo dell-xps13-sidecar-amps-apply
 hardware/dell-xps13-sidecar-amps.sh|xps13-pkg-add-fails|1|pkg-add dell-xps13-sidecar-amps
+hardware/razer/fix-razer-blade15-360hz-edid.sh|razer-blade15|0|wrote usr/lib/firmware/edid/razer-blade15-tl156vdxp02.bin|wrote etc/limine-entry-tool.d/razer-blade15-edid.conf|wrote etc/mkinitcpio.conf.d/razer-blade15-edid.conf
+hardware/razer/fix-razer-blade15-360hz-edid.sh|razer-blade15+unreadable|0
+hardware/razer/fix-razer-blade15-360hz-edid.sh|razer-blade15-other-panel|0
+hardware/razer/fix-razer-blade15-360hz-edid.sh|razer-blade15-other-model|0
 # Wildcat Lake's GPU is named only "[Intel Graphics]".
 hardware/intel/video-acceleration.sh|xps13-wcl|0|pkg-add intel-media-driver libvpl vpl-gpu-rt
 hardware/intel/video-acceleration.sh|nouveau|0
